@@ -1,0 +1,23 @@
+[project]
+dependencies = [
+  "gymnasium>=1.2.1",
+  "mujoco>=3.3.7",
+]
+description = "Add your description here"
+name = "shadow-gym"
+readme = "README.md"
+requires-python = ">=3.10.12,<3.11"
+version = "0.1.0"
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.407",
+  "ruff>=0.14.3",
+]
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
