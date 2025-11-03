@@ -1,0 +1,14 @@
+# Default settings
+defaults:
+  - _self_
+  - hydra: local
+
+# MuJoCo camera settings 
+camera:
+  distance: 0.5
+  azimuth: 0.0
+  elevation: -25.0
+  lookat: [1, 0.96, 0.14]
+
+# Scene path 
+scene_path: "../assets/hand/reach.xml"
