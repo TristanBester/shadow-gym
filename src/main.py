@@ -31,6 +31,38 @@ def set_action(action, model, data):
     return data
 
 
+class Visualiser:
+    def __init__(self, position_sites, target_sites, fingertip_sites):
+        self.position_sites = position_sites
+        self.target_sites = target_sites
+        self.fingertip_sites = fingertip_sites
+
+    def __call__(self, model, data):
+        # Target visualisation
+        for i, site_name in enumerate(self.target_sites):
+            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+            model.site_pos[site_id] = [0.0, -0.3 + i * 0.025, 0.1]
+
+        # Fingertip visualisation
+        site_offset = data.site_xpos - model.site_pos
+
+        fingertip_global_positions = []
+        for site_name in self.position_sites:
+            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+            global_position = data.site_xpos[site_id]
+            fingertip_global_positions.append(global_position)
+
+        for site_name, global_position in zip(
+            self.fingertip_sites, fingertip_global_positions
+        ):
+            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+            # Convert the global position to a local position for the visualisation site
+            local_position = global_position - site_offset[site_id]
+            model.site_pos[site_id] = local_position
+
+        return model
+
+
 @hydra.main(
     config_path="../config",
     config_name="config.yaml",
@@ -41,34 +73,14 @@ def main(config: DictConfig):
     data = mujoco.MjData(model)
 
     renderer = MujocoRenderer(model=model, data=data, default_cam_config=config.camera)
-
-    for i, site_name in enumerate(config.sites.target):
-        site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
-        model.site_pos[site_id] = [0.0, -0.3 + i * 0.025, 0.1]
-
-    # for i, site_name in enumerate(config.sites.finger):
-    #     site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
-    #     model.site_pos[site_id] = [0.0, -0.3 + i * 0.025, 0.1]
+    visualiser = Visualiser(
+        config.sites.fingertip, config.sites.target, config.sites.finger
+    )
 
     while True:
-        site_offset = (data.site_xpos - model.site_pos).copy()
-
-        # Get current fingertip positions
-        fingertip_positions = []
-        for site_name in config.sites.fingertip:
-            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
-            site_position = data.site_xpos[site_id]
-            fingertip_positions.append(site_position)
-
-        fingertip_positions = np.array(fingertip_positions).flatten().reshape(5, 3)
-
-        # Visulise fingetip positions
-        for i, site_name in enumerate(config.sites.finger):
-            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
-            model.site_pos[site_id] = fingertip_positions[i] - site_offset[site_id]
-
         action = sample_action()
         data = set_action(action, model, data)
+        model = visualiser(model, data)
 
         mujoco.mj_step(model, data)
         renderer.render("human")
