@@ -2,6 +2,9 @@
 defaults:
   - _self_
   - hydra: local
+  - sites/fingertip
+  - sites/target
+  - sites/finger
 
 # MuJoCo camera settings 
 camera:

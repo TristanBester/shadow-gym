@@ -42,7 +42,31 @@ def main(config: DictConfig):
 
     renderer = MujocoRenderer(model=model, data=data, default_cam_config=config.camera)
 
+    for i, site_name in enumerate(config.sites.target):
+        site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+        model.site_pos[site_id] = [0.0, -0.3 + i * 0.025, 0.1]
+
+    # for i, site_name in enumerate(config.sites.finger):
+    #     site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+    #     model.site_pos[site_id] = [0.0, -0.3 + i * 0.025, 0.1]
+
     while True:
+        site_offset = (data.site_xpos - model.site_pos).copy()
+
+        # Get current fingertip positions
+        fingertip_positions = []
+        for site_name in config.sites.fingertip:
+            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+            site_position = data.site_xpos[site_id]
+            fingertip_positions.append(site_position)
+
+        fingertip_positions = np.array(fingertip_positions).flatten().reshape(5, 3)
+
+        # Visulise fingetip positions
+        for i, site_name in enumerate(config.sites.finger):
+            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+            model.site_pos[site_id] = fingertip_positions[i] - site_offset[site_id]
+
         action = sample_action()
         data = set_action(action, model, data)
 
