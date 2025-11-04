@@ -38,29 +38,40 @@ class Visualiser:
         self.fingertip_sites = fingertip_sites
 
     def __call__(self, model, data):
+        model = self._visualise_targets(model)
+        model = self._visualise_fingertips(model, data)
+        return model
+
+    def _visualise_targets(self, model):
         # Target visualisation
         for i, site_name in enumerate(self.target_sites):
-            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+            site_id = self._get_site_id(model, site_name)
             model.site_pos[site_id] = [0.0, -0.3 + i * 0.025, 0.1]
+        return model
 
-        # Fingertip visualisation
-        site_offset = data.site_xpos - model.site_pos
-
+    def _visualise_fingertips(self, model, data):
+        # Get fingertip positions
         fingertip_global_positions = []
         for site_name in self.position_sites:
-            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+            site_id = self._get_site_id(model, site_name)
             global_position = data.site_xpos[site_id]
             fingertip_global_positions.append(global_position)
 
+        # Compute global position offsets
+        site_offset = data.site_xpos - model.site_pos
+
+        # Visualise fingertips
         for site_name, global_position in zip(
             self.fingertip_sites, fingertip_global_positions
         ):
-            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+            site_id = self._get_site_id(model, site_name)
             # Convert the global position to a local position for the visualisation site
             local_position = global_position - site_offset[site_id]
             model.site_pos[site_id] = local_position
-
         return model
+
+    def _get_site_id(self, model, site_name):
+        return mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
 
 
 @hydra.main(
