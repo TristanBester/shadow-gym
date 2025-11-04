@@ -38,15 +38,29 @@ class Visualiser:
         self.fingertip_sites = fingertip_sites
 
     def __call__(self, model, data):
-        model = self._visualise_targets(model)
+        model = self._visualise_targets(model, data)
         model = self._visualise_fingertips(model, data)
         return model
 
-    def _visualise_targets(self, model):
-        # Target visualisation
-        for i, site_name in enumerate(self.target_sites):
-            site_id = self._get_site_id(model, site_name)
-            model.site_pos[site_id] = [0.0, -0.3 + i * 0.025, 0.1]
+    def _visualise_targets(self, model, data):
+        site_offset = data.site_xpos - model.site_pos
+
+        for position_site_name, target_site_name in zip(
+            self.position_sites, self.target_sites
+        ):
+            position_site_id = self._get_site_id(model, position_site_name)
+            target_site_id = self._get_site_id(model, target_site_name)
+
+            fingertip_position = data.site_xpos[position_site_id]
+
+            if target_site_name == "target4":
+                target_position = fingertip_position + np.array([0.025, 0.025, 0.025])
+            else:
+                target_position = fingertip_position + np.array([0.0, 0.025, 0.025])
+
+            model.site_pos[target_site_id] = (
+                target_position - site_offset[target_site_id]
+            )
         return model
 
     def _visualise_fingertips(self, model, data):
@@ -90,7 +104,7 @@ def main(config: DictConfig):
 
     while True:
         action = sample_action()
-        data = set_action(action, model, data)
+        # data = set_action(action, model, data)
         model = visualiser(model, data)
 
         mujoco.mj_step(model, data)
