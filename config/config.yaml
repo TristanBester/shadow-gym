@@ -5,6 +5,7 @@ defaults:
   - sites/fingertip
   - sites/target
   - sites/finger
+  - goal/simple
 
 # MuJoCo camera settings 
 camera:

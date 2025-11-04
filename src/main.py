@@ -32,10 +32,11 @@ def set_action(action, model, data):
 
 
 class Visualiser:
-    def __init__(self, position_sites, target_sites, fingertip_sites):
+    def __init__(self, position_sites, target_sites, fingertip_sites, goal):
         self.position_sites = position_sites
         self.target_sites = target_sites
         self.fingertip_sites = fingertip_sites
+        self.goal = goal
 
     def __call__(self, model, data):
         model = self._visualise_targets(model, data)
@@ -45,22 +46,13 @@ class Visualiser:
     def _visualise_targets(self, model, data):
         site_offset = data.site_xpos - model.site_pos
 
-        for position_site_name, target_site_name in zip(
-            self.position_sites, self.target_sites
-        ):
-            position_site_id = self._get_site_id(model, position_site_name)
+        for target_site_name in self.target_sites:
             target_site_id = self._get_site_id(model, target_site_name)
 
-            fingertip_position = data.site_xpos[position_site_id]
+            goal_position_global = np.array(self.goal[target_site_name])
+            goal_position_local = goal_position_global - site_offset[target_site_id]
+            model.site_pos[target_site_id] = goal_position_local
 
-            if target_site_name == "target4":
-                target_position = fingertip_position + np.array([0.025, 0.025, 0.025])
-            else:
-                target_position = fingertip_position + np.array([0.0, 0.025, 0.025])
-
-            model.site_pos[target_site_id] = (
-                target_position - site_offset[target_site_id]
-            )
         return model
 
     def _visualise_fingertips(self, model, data):
@@ -99,7 +91,7 @@ def main(config: DictConfig):
 
     renderer = MujocoRenderer(model=model, data=data, default_cam_config=config.camera)
     visualiser = Visualiser(
-        config.sites.fingertip, config.sites.target, config.sites.finger
+        config.sites.fingertip, config.sites.target, config.sites.finger, config.goal
     )
 
     while True:
