@@ -4,13 +4,19 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 
+#   robot0:S_fftip    : [0.967000, 0.821350, 0.169911]
+#   robot0:S_mftip    : [0.989000, 0.817866, 0.169436]
+#   robot0:S_rftip    : [1.011000, 0.819686, 0.171049]
+#   robot0:S_lftip    : [1.033675, 0.826716, 0.172286]
+#   robot0:S_thtip    : [0.897298, 0.861390, 0.141381]
+
 # Target site positions (goal positions for fingertips)
 TARGET_POSITIONS = {
-    "target0": np.array([0.966, 0.794, 0.153]),  # First finger
-    "target1": np.array([0.988, 0.790, 0.153]),  # Middle finger
-    "target2": np.array([1.010, 0.794, 0.153]),  # Ring finger
-    "target3": np.array([1.033, 0.801, 0.154]),  # Little finger
-    "target4": np.array([0.922, 0.886, 0.167]),  # Thumb
+    "target0": np.array([0.967, 0.821, 0.170]),  # First finger
+    "target1": np.array([0.989, 0.818, 0.170]),  # Middle finger
+    "target2": np.array([1.011, 0.819, 0.171]),  # Ring finger
+    "target3": np.array([1.034, 0.827, 0.172]),  # Little finger
+    "target4": np.array([0.897, 0.861, 0.141]),  # Thumb
 }
 
 

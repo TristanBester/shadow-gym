@@ -13,18 +13,36 @@ class ShadowRenderer:
         finger_sites: list,
         target_sites: list,
         goal: dict,
+        render_mode: str = "human",
     ):
         self.model = model
         self.data = data
+
+        # Extract width and height from camera_config (they're not MuJoCo camera attributes)
+        width = camera_config.get("width", 640)
+        height = camera_config.get("height", 480)
+
+        # Create camera config without width/height for MuJoCo camera
+        cam_config = {
+            k: v for k, v in camera_config.items() if k not in ["width", "height"]
+        }
+
         self.renderer = MujocoRenderer(
             model=model,
             data=data,
-            default_cam_config=camera_config,
+            default_cam_config=cam_config,
         )
+
+        # For rgb_array mode, explicitly set width and height on the renderer
+        if render_mode == "rgb_array":
+            self.renderer.width = width
+            self.renderer.height = height
+
         self.fingertip_sites = fingertip_sites
         self.finger_sites = finger_sites
         self.target_sites = target_sites
         self.goal = goal
+        self.render_mode = render_mode
 
         self._set_goal_site_positions()
 
@@ -33,7 +51,12 @@ class ShadowRenderer:
         self._set_goal_site_positions()
         self._set_finger_site_positions()
 
-        self.renderer.render("human")
+        if self.render_mode == "human":
+            self.renderer.render("human")
+        elif self.render_mode == "rgb_array":
+            return self.renderer.render("rgb_array")
+        else:
+            raise ValueError(f"Invalid render mode: {self.render_mode}")
 
     def _set_goal_site_positions(self):
         site_offset = self.data.site_xpos - self.model.site_pos

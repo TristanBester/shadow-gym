@@ -6,14 +6,38 @@ from omegaconf import DictConfig
 
 from src.render import ShadowRenderer
 
+TARGET_ACTION = np.array(
+    [
+        0.555,
+        0.176,
+        0.000,
+        -1.000,
+        0.280,
+        0.000,
+        -1.000,
+        0.290,
+        0.000,
+        -1.000,
+        0.280,
+        -1.000,
+        0.000,
+        -1.000,
+        0.290,
+        0.000,
+        -1.000,
+        0.000,
+        0.000,
+        1.000,
+    ]
+)
+
 
 class ShadowEnv(gym.Env):
     # TODO: Fix the arguments that are passed in to make sense
-    def __init__(self, config: DictConfig, use_correct_action_space: bool = True):
+    def __init__(self, config: DictConfig, render_mode: str = "human"):
         self.scene_path = config.scene_path
         self.model = mujoco.MjModel.from_xml_path(self.scene_path)
         self.data = mujoco.MjData(self.model)
-        self.use_correct_action_space = use_correct_action_space
 
         # TODO: Name these better
         self.fingertip_sites = config.sites.fingertip
@@ -21,6 +45,7 @@ class ShadowEnv(gym.Env):
         self.target_sites = config.sites.target
 
         self.config = config
+        self.render_mode = render_mode
 
         self.renderer = ShadowRenderer(
             model=self.model,
@@ -30,6 +55,7 @@ class ShadowEnv(gym.Env):
             finger_sites=self.finger_sites,
             target_sites=self.target_sites,
             goal=config.goal,
+            render_mode=render_mode,
         )
 
         # Reset stuff
@@ -62,19 +88,20 @@ class ShadowEnv(gym.Env):
     def step(self, action):
         self._apply_action(action)
 
-        mujoco.mj_step(self.model, self.data)
+        for i in range(10):
+            mujoco.mj_step(self.model, self.data)
 
         obs = self._get_obs()
 
         reward = self._compute_reward()
         truncated = self.steps >= 200
-        terminated = truncated
+        terminated = reward > -0.025
 
         self.steps += 1
         return obs, reward, terminated, truncated, {}
 
     def render(self):
-        self.renderer.render()
+        return self.renderer.render()
 
     def close(self):
         pass
@@ -93,35 +120,30 @@ class ShadowEnv(gym.Env):
         return self.data.site_xpos[site_id]
 
     def _apply_action(self, action):
-        if self.use_correct_action_space:
-            clipped_action = np.clip(action, -1, 1)
+        simple_action = TARGET_ACTION.copy()
+        simple_action[4] = action[4]
+        simple_action[7] = action[7]
+        simple_action[10] = action[10]
+        simple_action[14] = action[14]
 
-            # Get the control ranges for each actuator in the model
-            control_ranges = self.model.actuator_ctrlrange
+        action = simple_action.copy()
 
-            # Compute the half the range of actuation for each actuator
-            half_actuation_ranges = (control_ranges[:, 1] - control_ranges[:, 0]) / 2.0
+        ###
 
-            # Compute the center of the actuation for each actuator
-            actuation_centers = (control_ranges[:, 1] + control_ranges[:, 0]) / 2.0
+        clipped_action = np.clip(action, -1, 1)
 
-            # Compute the control signal associated with the provided action
-            control = actuation_centers + clipped_action * half_actuation_ranges
-            self.data.ctrl[:] = control
-        else:
-            # Per-actuator control limits array with shape (n_actuators, 2): [min, max]
-            ctrlrange = self.model.actuator_ctrlrange
-            # Half of the control span for each actuator (used as a scaling/offset term)
-            actuation_range = (ctrlrange[:, 1] - ctrlrange[:, 0]) / 2.0
+        # Get the control ranges for each actuator in the model
+        control_ranges = self.model.actuator_ctrlrange
 
-            # Absolute control: center is the midpoint of each actuator's range
-            actuation_center = (ctrlrange[:, 1] + ctrlrange[:, 0]) / 2.0
+        # Compute the half the range of actuation for each actuator
+        half_actuation_ranges = (control_ranges[:, 1] - control_ranges[:, 0]) / 2.0
 
-            # Compose raw control: center + user action (+ half-range offset), then clip
-            self.data.ctrl[:] = actuation_center + action + actuation_range
-            self.data.ctrl[:] = np.clip(
-                self.data.ctrl, ctrlrange[:, 0], ctrlrange[:, 1]
-            )
+        # Compute the center of the actuation for each actuator
+        actuation_centers = (control_ranges[:, 1] + control_ranges[:, 0]) / 2.0
+
+        # Compute the control signal associated with the provided action
+        control = actuation_centers + clipped_action * half_actuation_ranges
+        self.data.ctrl[:] = control
 
     def _compute_reward(self):
         goal_positions = np.array(
