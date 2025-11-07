@@ -1,6 +1,7 @@
 import gymnasium as gym
 import mujoco
 import numpy as np
+from gymnasium import spaces
 from omegaconf import DictConfig
 
 from src.render import ShadowRenderer
@@ -8,10 +9,11 @@ from src.render import ShadowRenderer
 
 class ShadowEnv(gym.Env):
     # TODO: Fix the arguments that are passed in to make sense
-    def __init__(self, config: DictConfig):
+    def __init__(self, config: DictConfig, use_correct_action_space: bool = True):
         self.scene_path = config.scene_path
         self.model = mujoco.MjModel.from_xml_path(self.scene_path)
         self.data = mujoco.MjData(self.model)
+        self.use_correct_action_space = use_correct_action_space
 
         # TODO: Name these better
         self.fingertip_sites = config.sites.fingertip
@@ -35,6 +37,20 @@ class ShadowEnv(gym.Env):
         self.initial_time = self.data.time
         self.initial_qpos = np.copy(self.data.qpos)
         self.initial_qvel = np.copy(self.data.qvel)
+
+        # TODO: Make nicer
+        self.action_space = spaces.Box(
+            -1.0,
+            1.0,
+            shape=(20,),
+            dtype="float32",
+        )
+        self.observation_space = spaces.Box(
+            -np.inf,
+            np.inf,
+            shape=(15,),
+            dtype="float32",
+        )
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         self._reset_simulation()
@@ -70,30 +86,47 @@ class ShadowEnv(gym.Env):
             fingertip_positions.append(site_position)
 
         fingertip_positions = np.array(fingertip_positions)
-        return fingertip_positions
+        return fingertip_positions.flatten()
 
     def _get_site_position(self, site_name: str) -> np.ndarray:
         site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, site_name)
         return self.data.site_xpos[site_id]
 
     def _apply_action(self, action):
-        clipped_action = np.clip(action, -1, 1)
+        if self.use_correct_action_space:
+            clipped_action = np.clip(action, -1, 1)
 
-        # Get the control ranges for each actuator in the model
-        control_ranges = self.model.actuator_ctrlrange
+            # Get the control ranges for each actuator in the model
+            control_ranges = self.model.actuator_ctrlrange
 
-        # Compute the half the range of actuation for each actuator
-        half_actuation_ranges = (control_ranges[:, 1] - control_ranges[:, 0]) / 2.0
+            # Compute the half the range of actuation for each actuator
+            half_actuation_ranges = (control_ranges[:, 1] - control_ranges[:, 0]) / 2.0
 
-        # Compute the center of the actuation for each actuator
-        actuation_centers = (control_ranges[:, 1] + control_ranges[:, 0]) / 2.0
+            # Compute the center of the actuation for each actuator
+            actuation_centers = (control_ranges[:, 1] + control_ranges[:, 0]) / 2.0
 
-        # Compute the control signal associated with the provided action
-        control = actuation_centers + clipped_action * half_actuation_ranges
-        self.data.ctrl[:] = control
+            # Compute the control signal associated with the provided action
+            control = actuation_centers + clipped_action * half_actuation_ranges
+            self.data.ctrl[:] = control
+        else:
+            # Per-actuator control limits array with shape (n_actuators, 2): [min, max]
+            ctrlrange = self.model.actuator_ctrlrange
+            # Half of the control span for each actuator (used as a scaling/offset term)
+            actuation_range = (ctrlrange[:, 1] - ctrlrange[:, 0]) / 2.0
+
+            # Absolute control: center is the midpoint of each actuator's range
+            actuation_center = (ctrlrange[:, 1] + ctrlrange[:, 0]) / 2.0
+
+            # Compose raw control: center + user action (+ half-range offset), then clip
+            self.data.ctrl[:] = actuation_center + action + actuation_range
+            self.data.ctrl[:] = np.clip(
+                self.data.ctrl, ctrlrange[:, 0], ctrlrange[:, 1]
+            )
 
     def _compute_reward(self):
-        goal_positions = np.array([np.array(i) for i in self.config.goal.values()])
+        goal_positions = np.array(
+            [np.array(i) for i in self.config.goal.values()]
+        ).flatten()
         actual_positions = self._get_obs()
 
         distances = np.linalg.norm(goal_positions - actual_positions)
