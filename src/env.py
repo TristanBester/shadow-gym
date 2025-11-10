@@ -6,31 +6,6 @@ from omegaconf import DictConfig
 
 from src.render import ShadowRenderer
 
-TARGET_ACTION = np.array(
-    [
-        0.555,
-        0.176,
-        0.000,
-        -1.000,
-        0.280,
-        0.000,
-        -1.000,
-        0.290,
-        0.000,
-        -1.000,
-        0.280,
-        -1.000,
-        0.000,
-        -1.000,
-        0.290,
-        0.000,
-        -1.000,
-        0.000,
-        0.000,
-        1.000,
-    ]
-)
-
 
 class ShadowEnv(gym.Env):
     # TODO: Fix the arguments that are passed in to make sense
@@ -81,6 +56,8 @@ class ShadowEnv(gym.Env):
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         self._reset_simulation()
 
+        self._solved_counter = 0
+
         self.steps = 0
         obs = self._get_obs()
         return obs, {}
@@ -94,8 +71,20 @@ class ShadowEnv(gym.Env):
         obs = self._get_obs()
 
         reward = self._compute_reward()
-        truncated = self.steps >= 200
-        terminated = reward > -0.025
+        truncated = self.steps >= 100
+
+        # if reward > -0.025:
+        #     self._solved_counter += 1
+        #     print(f"Solved counter: {self._solved_counter}")
+        # else:
+        #     self._solved_counter = 0
+
+        # terminated = self._solved_counter >= 50
+
+        # if terminated:
+        #     reward = 10
+
+        terminated = False
 
         self.steps += 1
         return obs, reward, terminated, truncated, {}
@@ -120,16 +109,6 @@ class ShadowEnv(gym.Env):
         return self.data.site_xpos[site_id]
 
     def _apply_action(self, action):
-        simple_action = TARGET_ACTION.copy()
-        simple_action[4] = action[4]
-        simple_action[7] = action[7]
-        simple_action[10] = action[10]
-        simple_action[14] = action[14]
-
-        action = simple_action.copy()
-
-        ###
-
         clipped_action = np.clip(action, -1, 1)
 
         # Get the control ranges for each actuator in the model

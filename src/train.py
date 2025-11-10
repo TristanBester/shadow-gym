@@ -1,10 +1,13 @@
 import os
+
+os.environ["MUJOCO_GL"] = "egl"
 from glob import glob
 
 import hydra
 import wandb
 from omegaconf import DictConfig
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
 from stable_baselines3.sac import SAC
 
@@ -24,7 +27,7 @@ class VideoUploadCallback(BaseCallback):
 
     def _on_step(self) -> bool:
         # Check for new video files
-        if self.num_timesteps % 100_000 != 0:
+        if self.num_timesteps > 10 and self.num_timesteps % 50_000 != 0:
             return True
 
         video_files = glob(os.path.join(self.video_folder, "*.mp4"))
@@ -56,19 +59,20 @@ class VideoUploadCallback(BaseCallback):
 def main(config: DictConfig):
     run = wandb.init(
         project="shadow-gym",
-        name="SAC_correct",
+        name="SAC_hard",
         sync_tensorboard=True,
     )
 
     # Wrap with DummyVecEnv for vectorization
     # The environment needs render_mode="rgb_array" for video recording
-    env = DummyVecEnv([lambda: ShadowEnv(config, render_mode="rgb_array")])
+    # Monitor wrapper tracks episode returns and lengths for TensorBoard logging
+    env = DummyVecEnv([lambda: Monitor(ShadowEnv(config, render_mode="rgb_array"))])
 
     # Wrap with VecVideoRecorder for video recording
     env = VecVideoRecorder(
         env,
         f"./runs/{run.id}/videos",
-        record_video_trigger=lambda step: step % 250_000 == 0,
+        record_video_trigger=lambda step: step % 100_000 == 0,
         video_length=1000,
         name_prefix="sac-shadow",
     )
