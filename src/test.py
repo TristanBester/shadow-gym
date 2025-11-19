@@ -38,8 +38,8 @@ ACTION = np.array(
 )
 def main(config):
     env = ShadowEnv(config)
-    obs, _ = env.reset()
 
+    obs, _ = env.reset()
     rewards = []
 
     for i in range(200):
