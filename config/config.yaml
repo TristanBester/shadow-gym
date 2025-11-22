@@ -7,6 +7,10 @@ defaults:
   - sites/finger
   - goal/medium
   - goal/sign_h
+  - signs/r 
+  - signs/a
+  - signs/i
+  - signs/l
 
 # MuJoCo camera settings 
 camera:

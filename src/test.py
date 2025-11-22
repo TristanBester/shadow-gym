@@ -43,7 +43,7 @@ def main(config):
     rewards = []
 
     for i in range(200):
-        action = ACTION
+        action = np.array(config.signs.l.action)
 
         obs, reward, terminated, truncated, info = env.step(action)
         env.render()
