@@ -1,34 +1,8 @@
 import hydra
 import matplotlib.pyplot as plt
 import numpy as np
-from omegaconf import DictConfig
 
-from src.env import ShadowEnv
-
-ACTION = np.array(
-    [
-        -1.000,
-        +0.176,
-        -1.000,
-        -1.000,
-        -1.000,
-        -1.000,
-        -1.000,
-        -1.000,
-        -1.000,
-        +1.000,
-        +1.000,
-        -0.490,
-        -1.000,
-        +1.000,
-        +1.000,
-        +0.720,
-        +0.750,
-        +1.000,
-        -1.000,
-        -1.000,
-    ]
-)
+from src.core import ShadowEnv
 
 
 @hydra.main(
@@ -37,7 +11,12 @@ ACTION = np.array(
     version_base=None,
 )
 def main(config):
-    env = ShadowEnv(config)
+    env = ShadowEnv(
+        scene_path=config.scene_path,
+        camera_config=config.camera,
+        sign_config=config.signs.r,
+        render_mode="human",
+    )
 
     obs, _ = env.reset()
     rewards = []

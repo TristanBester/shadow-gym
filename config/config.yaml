@@ -18,8 +18,8 @@ camera:
   azimuth: -89.5
   elevation: -89.0
   lookat: [0.978, 0.950, 0.737]
-  width: 256
-  height: 256
+  width: 640
+  height: 480
 
 # Scene path 
 scene_path: "../assets/hand/reach.xml"

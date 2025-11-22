@@ -11,7 +11,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
 from stable_baselines3.sac import SAC
 
-from src.env import ShadowEnv
+from src.core import ShadowEnv
 
 
 class VideoUploadCallback(BaseCallback):
