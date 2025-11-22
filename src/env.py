@@ -74,9 +74,21 @@ class ShadowEnv(gym.Env):
         self.scene_path = config.scene_path
         self.model = mujoco.MjModel.from_xml_path(self.scene_path)
         self.data = mujoco.MjData(self.model)
+        self.config = config
 
-        # TODO: Remove this trash and put it in config
-        self.joint_names, _, _ = extract_mj_names(self.model, mujoco.mjtObj.mjOBJ_JOINT)
+        # # TODO: Remove this trash and put it in config
+        # self.joint_names, _, _ = extract_mj_names(self.model, mujoco.mjtObj.mjOBJ_JOINT)
+
+        # TODO: Move this into config
+        self.joint_names = []
+        self.joint_qpos_addrs = []
+        for i in range(self.model.njnt):
+            joint_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_JOINT, i)
+            if joint_name:
+                self.joint_names.append(joint_name)
+                self.joint_qpos_addrs.append(self.model.jnt_qposadr[i])
+            else:
+                print(f"Warning: Joint {i} has no name")
 
         # TODO: Name these better
         self.fingertip_sites = config.sites.fingertip
@@ -223,21 +235,16 @@ class ShadowEnv(gym.Env):
     def _compute_reward(self, action: np.ndarray):
         #### 1) Distance from goal position
 
-        # Get the goal positions
-        goal_positions = np.array(
-            [np.array(i) for i in self.config.goal.values()]
-        ).flatten()
+        target_values = []
+        for joint_name in self.joint_names:
+            joint_name_clipped = joint_name.split(":")[1]
+            target_value = self.config.goal.sign_h[joint_name_clipped]
+            target_values.append(target_value)
+        target_values = np.array(target_values)
 
-        # Get the actual fingertip positions
-        fingertip_positions = []
-        for site_name in self.fingertip_sites:
-            site_position = self._get_site_position(site_name)
-            fingertip_positions.append(site_position)
+        actual_values = self.data.qpos[np.array(self.joint_qpos_addrs)]
 
-        fingertip_positions = np.array(fingertip_positions)
-        actual_positions = fingertip_positions.flatten()
-
-        distances = np.linalg.norm(goal_positions - actual_positions)
+        distances = np.linalg.norm(target_values - actual_values)
         distance_reward = -1.0 * distances
 
         #### 2) Smoothness

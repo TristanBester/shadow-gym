@@ -64,22 +64,16 @@ def main():
     half_ranges = (ctrl_range[:, 1] - ctrl_range[:, 0]) / 2.0
     centers = (ctrl_range[:, 1] + ctrl_range[:, 0]) / 2.0
 
-    # Get fingertip site IDs
-    fingertip_sites = [
-        "robot0:S_fftip",
-        "robot0:S_mftip",
-        "robot0:S_rftip",
-        "robot0:S_lftip",
-        "robot0:S_thtip",
-    ]
-    fingertip_site_ids = []
-    for site_name in fingertip_sites:
-        try:
-            site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
-            fingertip_site_ids.append(site_id)
-        except Exception as e:
-            print(f"Warning: Could not find site {site_name}: {e}")
-            fingertip_site_ids.append(None)
+    # Get joint names and their qpos addresses
+    joint_names = []
+    joint_qpos_addrs = []
+    for i in range(model.njnt):
+        joint_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, i)
+        if joint_name:
+            joint_names.append(joint_name)
+            joint_qpos_addrs.append(model.jnt_qposadr[i])
+        else:
+            print(f"Warning: Joint {i} has no name")
 
     try:
         while viewer.is_running():
@@ -108,16 +102,11 @@ def main():
                     print(f"{normalized_actions[i]:+.3f}", end="")
                 print("])")
 
-                # Print fingertip positions
-                print("\nFingertip Positions [x, y, z]:")
-                for site_name, site_id in zip(fingertip_sites, fingertip_site_ids):
-                    if site_id is not None:
-                        pos = data.site_xpos[site_id]
-                        print(
-                            f"  {site_name:18s}: [{pos[0]:.6f}, {pos[1]:.6f}, {pos[2]:.6f}]"
-                        )
-                    else:
-                        print(f"  {site_name:18s}: [NOT FOUND]")
+                # Print joint qpos values
+                print("\nJoint Positions (qpos):")
+                for joint_name, qpos_addr in zip(joint_names, joint_qpos_addrs):
+                    qpos_val = data.qpos[qpos_addr]
+                    print(f"  {joint_name:30s}: {qpos_val:+.6f}")
 
                 print("-" * 80)
 
