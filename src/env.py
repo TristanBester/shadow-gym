@@ -255,7 +255,7 @@ class ShadowEnv(gym.Env):
 
         #### Total reward
         reward = (
-            1.0 * distance_reward
+            self.config.distance_weight * distance_reward
             + 0.5 * smoothness_reward
             + 0.1 * velocity_penalty
             + 0.1 * energy_penalty

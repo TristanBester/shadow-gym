@@ -62,6 +62,7 @@ def main(config: DictConfig):
         name="SAC_hard",
         sync_tensorboard=True,
     )
+    run.config.update({"distance_weight": config.distance_weight})
 
     # Wrap with DummyVecEnv for vectorization
     # The environment needs render_mode="rgb_array" for video recording
