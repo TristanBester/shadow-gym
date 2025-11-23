@@ -4,6 +4,8 @@ import numpy as np
 from gymnasium import spaces
 from gymnasium.envs.mujoco.mujoco_rendering import MujocoRenderer
 
+from src.config import base_config, camera_config, robot_config, sign_config_r
+
 
 class ShadowEnv(gym.Env):
     """Shadow environment."""
@@ -16,16 +18,15 @@ class ShadowEnv(gym.Env):
 
     def __init__(
         self,
-        scene_path: str,
-        sign_config: dict,
-        camera_config: dict,
         render_mode: str = "human",
     ):
         """Initialise the environment."""
         super().__init__()
-        self._init_scene(scene_path=scene_path)
-        self._init_renderer(camera_config=camera_config)
-        self._load_joint_information()
+        self.render_mode = render_mode
+        self.base_config = base_config
+        self.camera_config = camera_config
+        self.robot_config = robot_config
+        self.sign_config = sign_config_r
 
         self.action_space = spaces.Box(
             -1.0,
@@ -39,8 +40,9 @@ class ShadowEnv(gym.Env):
             shape=(48,),
             dtype="float32",
         )
-        self.render_mode = render_mode
-        self.sign_config = sign_config
+
+        self._init_scene()
+        self._init_renderer()
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         """Reset the environment."""
@@ -72,9 +74,9 @@ class ShadowEnv(gym.Env):
         else:
             raise ValueError(f"Unsupported render mode: {self.render_mode}")
 
-    def _init_scene(self, scene_path: str):
+    def _init_scene(self):
         """Initialise the MuJoCo model from the given scene path."""
-        self.model = mujoco.MjModel.from_xml_path(scene_path)
+        self.model = mujoco.MjModel.from_xml_path(self.base_config.scene_path)
         self.data = mujoco.MjData(self.model)
 
         # Used to reset the environment
@@ -82,34 +84,21 @@ class ShadowEnv(gym.Env):
         self.initial_qpos = np.copy(self.data.qpos)
         self.initial_qvel = np.copy(self.data.qvel)
 
-    def _load_joint_information(self):
-        """Load the information and addresses for all joints in the model."""
-        # TODO: Consider moving this into a config file
-        self.joint_names = []
-        self.joint_qpos_addrs = []
-
-        for i in range(self.model.njnt):
-            joint_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_JOINT, i)
-
-            if joint_name:
-                self.joint_names.append(joint_name)
-                self.joint_qpos_addrs.append(self.model.jnt_qposadr[i])
-            else:
-                print(f"Warning: Joint {i} has no name")
-
-    def _init_renderer(self, camera_config: dict):
+    def _init_renderer(self):
         """Initialise the MuJoCo renderer."""
-        # Create camera config without width/height for MuJoCo camera
-        mj_config = {
-            k: v for k, v in camera_config.items() if k not in ["width", "height"]
+        renderer_config = {
+            "distance": self.camera_config.distance,
+            "azimuth": self.camera_config.azimuth,
+            "elevation": self.camera_config.elevation,
+            "lookat": self.camera_config.lookat,
         }
         self.renderer = MujocoRenderer(
             model=self.model,
             data=self.data,
-            default_cam_config=mj_config,
+            default_cam_config=renderer_config,
         )
-        self.renderer.width = camera_config["width"]
-        self.renderer.height = camera_config["height"]
+        self.renderer.width = self.camera_config.width
+        self.renderer.height = self.camera_config.height
 
     def _reset_simulation(self):
         """Reset the simulation."""
@@ -155,13 +144,13 @@ class ShadowEnv(gym.Env):
         joint_positions = np.array(
             [
                 self._get_joint_qpos(self.model, self.data, name)
-                for name in self.joint_names
+                for name in self.robot_config.joint_names
             ]
         ).squeeze()
         joint_velocities = np.array(
             [
                 self._get_joint_qvel(self.model, self.data, name)
-                for name in self.joint_names
+                for name in self.robot_config.joint_names
             ]
         ).squeeze()
         return np.concatenate([joint_positions, joint_velocities])
@@ -190,14 +179,14 @@ class ShadowEnv(gym.Env):
 
     def _compute_reward(self, action: np.ndarray):
         # 1. Distance from goal position
-        target_values = []
-        for joint_name in self.joint_names:
-            joint_name_clipped = joint_name.split(":")[1]
-            target_value = self.sign_config["sign"][joint_name_clipped]
-            target_values.append(target_value)
-        target_values = np.array(target_values)
 
-        actual_values = self.data.qpos[np.array(self.joint_qpos_addrs)]
+        target_values = []
+        for joint_name in self.robot_config.joint_names:
+            joint_name = joint_name.split(":")[1].lower()
+            target_value = getattr(self.sign_config, f"joint_{joint_name}")
+            target_values.append(target_value)
+
+        actual_values = self.data.qpos[np.array(self.robot_config.joint_qpos_addrs)]
 
         distances = np.linalg.norm(target_values - actual_values)
         distance_reward = -1.0 * distances

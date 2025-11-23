@@ -1,28 +1,19 @@
-import hydra
 import matplotlib.pyplot as plt
 import numpy as np
 
+from src.config import sign_config_r
 from src.core import ShadowEnv
 
 
-@hydra.main(
-    config_path="../config",
-    config_name="config.yaml",
-    version_base=None,
-)
-def main(config):
-    env = ShadowEnv(
-        scene_path=config.scene_path,
-        camera_config=config.camera,
-        sign_config=config.signs.r,
-        render_mode="human",
-    )
+def main():
+    """Main function."""
+    env = ShadowEnv(render_mode="human")
 
-    obs, _ = env.reset()
+    _, _ = env.reset()
     rewards = []
 
-    for i in range(200):
-        action = np.array(config.signs.l.action)
+    for _ in range(200):
+        action = np.array(sign_config_r.action)
 
         obs, reward, terminated, truncated, info = env.step(action)
         env.render()
