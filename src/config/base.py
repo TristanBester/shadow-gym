@@ -10,3 +10,4 @@ class BaseConfig(BaseSettings):
     smoothness_weight: float = 0.5
     velocity_weight: float = 0.1
     energy_weight: float = 0.1
+    labelling_function_tol: float = 0.1

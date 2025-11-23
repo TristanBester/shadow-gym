@@ -3,30 +3,27 @@ import os
 os.environ["MUJOCO_GL"] = "egl"
 from glob import glob
 
-import hydra
 import wandb
-from omegaconf import DictConfig
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
 from stable_baselines3.sac import SAC
 
-from src.core import ShadowEnv
+from src.core import cross_product_factory
 
 
 class VideoUploadCallback(BaseCallback):
-    """
-    Callback to upload videos to WandB when they are created.
-    """
+    """Callback to upload videos to WandB when they are created."""
 
     def __init__(self, video_folder: str, run, verbose: int = 0):
+        """Initialize the callback."""
         super().__init__(verbose)
         self.video_folder = video_folder
         self.run = run
         self.uploaded_videos = set()
 
     def _on_step(self) -> bool:
-        # Check for new video files
+        """On step callback."""
         if self.num_timesteps > 10 and self.num_timesteps % 50_000 != 0:
             return True
 
@@ -51,23 +48,20 @@ class VideoUploadCallback(BaseCallback):
         return True
 
 
-@hydra.main(
-    config_path="../config",
-    config_name="config.yaml",
-    version_base=None,
-)
-def main(config: DictConfig):
+def main():
+    """Main function."""
     run = wandb.init(
         project="shadow-gym",
-        name="SAC_hard",
+        name="SAC",
         sync_tensorboard=True,
     )
-    run.config.update({"distance_weight": config.distance_weight})
+
+    env = cross_product_factory(render_mode="rgb_array")
 
     # Wrap with DummyVecEnv for vectorization
     # The environment needs render_mode="rgb_array" for video recording
     # Monitor wrapper tracks episode returns and lengths for TensorBoard logging
-    env = DummyVecEnv([lambda: Monitor(ShadowEnv(config, render_mode="rgb_array"))])
+    env = DummyVecEnv([lambda: Monitor(env)])
 
     # Wrap with VecVideoRecorder for video recording
     env = VecVideoRecorder(
@@ -108,9 +102,6 @@ def main(config: DictConfig):
         log_interval=1,
         callback=callbacks,
     )
-
-    # Close the environment to save the final video file
-    env.close()
 
 
 if __name__ == "__main__":

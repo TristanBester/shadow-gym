@@ -7,14 +7,14 @@ from gymnasium.envs.mujoco.mujoco_rendering import MujocoRenderer
 from src.config import base_config, camera_config, robot_config, sign_config_r
 
 
-class ShadowEnv(gym.Env):
+class SignLanguageGroundEnvironment(gym.Env):
     """Shadow environment."""
 
-    MJ_STEPS_PER_ACTION = 4
-    DISTANCE_WEIGHT = 10.0
-    SMOOTHNESS_WEIGHT = 0.5
-    VELOCITY_WEIGHT = 0.1
-    ENERGY_WEIGHT = 0.1
+    # MJ_STEPS_PER_ACTION = 4
+    # DISTANCE_WEIGHT = 10.0
+    # SMOOTHNESS_WEIGHT = 0.5
+    # VELOCITY_WEIGHT = 0.1
+    # ENERGY_WEIGHT = 0.1
 
     def __init__(
         self,
@@ -46,9 +46,6 @@ class ShadowEnv(gym.Env):
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         """Reset the environment."""
-        self.steps = 0
-        self._prev_action = np.zeros(self.action_space.shape)
-
         self._reset_simulation()
         obs = self._get_obs()
         return obs, {}
@@ -59,18 +56,17 @@ class ShadowEnv(gym.Env):
         self._step_simulation()
 
         obs = self._get_obs()
-        reward = self._compute_reward(action)
-        truncated = self.steps >= 100
+        reward = 0.0
         terminated = False
-
-        self.steps += 1
-        self._prev_action = action
+        truncated = False
         return obs, reward, terminated, truncated, {}
 
     def render(self):
         """Render the environment."""
         if self.render_mode == "human":
             self.renderer.render("human")
+        elif self.render_mode == "rgb_array":
+            return self.renderer.render("rgb_array")
         else:
             raise ValueError(f"Unsupported render mode: {self.render_mode}")
 
@@ -136,7 +132,7 @@ class ShadowEnv(gym.Env):
 
     def _step_simulation(self):
         """Step the simulation."""
-        for _ in range(self.MJ_STEPS_PER_ACTION):
+        for _ in range(self.base_config.mj_steps_per_action):
             mujoco.mj_step(self.model, self.data)
 
     def _get_obs(self):
@@ -176,39 +172,3 @@ class ShadowEnv(gym.Env):
         end_idx = joint_addr + ndim
         qvel = data.qvel[start_idx:end_idx].copy()
         return qvel
-
-    def _compute_reward(self, action: np.ndarray):
-        # 1. Distance from goal position
-
-        target_values = []
-        for joint_name in self.robot_config.joint_names:
-            joint_name = joint_name.split(":")[1].lower()
-            target_value = getattr(self.sign_config, f"joint_{joint_name}")
-            target_values.append(target_value)
-
-        actual_values = self.data.qpos[np.array(self.robot_config.joint_qpos_addrs)]
-
-        distances = np.linalg.norm(target_values - actual_values)
-        distance_reward = -1.0 * distances
-
-        # 2. Smoothness
-        if self.steps > 0:
-            action_difference = np.linalg.norm(action - self._prev_action)
-            smoothness_reward = -1.0 * action_difference
-        else:
-            smoothness_reward = 0.0
-
-        # 3. Velocity penalty
-        velocity_penalty = -1.0 * np.linalg.norm(self.data.qvel)
-
-        # 4. Energy penalty
-        energy_penalty = -1.0 * np.linalg.norm(action)
-
-        # Total reward
-        reward = (
-            self.DISTANCE_WEIGHT * distance_reward
-            + self.SMOOTHNESS_WEIGHT * smoothness_reward
-            + self.VELOCITY_WEIGHT * velocity_penalty
-            + self.ENERGY_WEIGHT * energy_penalty
-        )
-        return float(reward)

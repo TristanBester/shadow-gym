@@ -48,6 +48,7 @@ ignore = [
   "D100", # missing docstring in public module
   "D104", # missing docstring in public package
   "B010", # conflicting with pyright
+  "E741", # ambiguous variable name
 ]
 select = [
   "E", # pycodestyle errors
