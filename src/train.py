@@ -84,7 +84,7 @@ def main():
 
     # Create checkpoint callback to save model every 500k steps
     checkpoint_callback = CheckpointCallback(
-        save_freq=100_000,
+        save_freq=1_000_000,
         save_path=f"./runs/{run.id}/models",
         name_prefix="sac_shadow",
         save_replay_buffer=True,
@@ -98,7 +98,7 @@ def main():
     callbacks = [checkpoint_callback, video_upload_callback]
 
     agent.learn(
-        total_timesteps=3_000_000,
+        total_timesteps=10_000_000,
         log_interval=1,
         callback=callbacks,
     )
