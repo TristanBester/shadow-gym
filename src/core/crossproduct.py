@@ -18,7 +18,7 @@ class SignLanguageCP(CrossProduct[np.ndarray, np.ndarray, np.ndarray, None]):
         """Initialize the cross product Markov decision process environment."""
         super().__init__(ground_env, machine, lf, max_steps)
         self.observation_space = gym.spaces.Box(
-            low=0, high=10, shape=(51,), dtype=np.float32
+            low=0, high=10, shape=(53,), dtype=np.float32
         )
         self.action_space = self.ground_env.action_space
         self.render_mode = self.ground_env.render_mode
